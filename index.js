@@ -1,7 +1,6 @@
 const express = require('express')
 const app = express()
 const cors = require('cors')
-const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 
 require('dotenv').config()
@@ -34,7 +33,7 @@ const genarateJwtToken = (user) => {
 }
 
 const verifyJwt = (req, res, next) => {
-    const token = req.headers?.authorization?.split(" ")[1]
+    const token = req?.headers?.authorization?.split(" ")[1]
     const jwt_payload = jwt.verify(token, process.env.JWT_SECRET)
     if (!jwt_payload?.email) {
         res.send({ message: "Unautorized User" })
@@ -57,9 +56,24 @@ async function run() {
             res.send(users)
         })
         app.get("/users/:id", async (req, res) => {
-            const id = req.params.id
-            const user = await userCollection.findOne({ _id: new ObjectId(id) })
+            const id = req.params?.id
+            const user = await userCollection.findOne({ "_id": new ObjectId(id) })
             res.send(user)
+        })
+        app.get("/user-info", async (req, res) => {
+            const email = req.query?.email
+            const user = await userCollection.findOne({ email: email })
+            res.send(user)
+        })
+        app.patch("/users/:email", async (req, res) => {
+            const email = req?.params?.email
+            const userInfo = req.body
+            const result = await userCollection.updateOne(
+                { email },
+                { $set: userInfo },
+                { upsert: true }
+            )
+            res.send({ message: "Profile Updated" })
         })
         app.post("/signup", async (req, res) => {
             const user = req.body
@@ -125,13 +139,32 @@ async function run() {
             const result = await serviceCollection.insertOne(order)
             res.send({ message: "service order placed" })
         })
-        app.delete("/delete-order/:id", async (req, res) => {
+        app.delete("/delete-order/:id", verifyJwt, async (req, res) => {
             const id = req.params.id
             const query = {
-                _id: new ObjectId(id)
+                "_id": new ObjectId(id)
             }
             const result = await serviceCollection.deleteOne(query)
             res.send({ message: "Service deleted" })
+        })
+
+        app.get("/order/:id", async (req, res) => {
+            const id = req.params?.id
+            const order = await serviceCollection.findOne(
+                { "_id": new ObjectId(id) }
+            )
+            res.send(order)
+        })
+
+        app.patch("/order/edit/:id", async (req, res) => {
+            const id = req.params?.id
+            const updatedInfo = req.body
+            const result = serviceCollection.updateOne(
+                { "_id": new ObjectId(id) },
+                { $set: updatedInfo },
+                { upsert: true }
+            )
+            res.send({ message: "Order info Updated" })
         })
 
         app.post("/add-feedback", verifyJwt, async (req, res) => {
