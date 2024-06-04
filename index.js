@@ -23,24 +23,30 @@ const client = new MongoClient(uri, {
     }
 });
 
+const genarateJwtToken = (user) => {
+    const token = jwt.sign(
+        {
+            email: user.email,
+        },
+        process.env.JWT_SECRET,
+    );
+    return token;
+}
 
+const verifyJwt = (req, res, next) => {
+    const token = req.headers?.authorization?.split(" ")[1]
+    const jwt_payload = jwt.verify(token, process.env.JWT_SECRET)
+    if (!jwt_payload?.email) {
+        res.send({ message: "Unautorized User" })
+    }
+    req.user = jwt_payload?.email
+    next()
+}
 
 async function run() {
     const userCollection = client.db("e_repair-shop").collection("users")
     const serviceCollection = client.db("e_repair-shop").collection("services")
-
-    const genarateJwtToken = async (user) => {
-        const token = jwt.sign(user, process.env.JWT_SECRET)
-        return token
-    }
-
-    const verifyJwt = (req, res, next) => {
-        const token = req.header?.authorization.split(" ")[1]
-        const jwt_payload = jwt.verify(token, process.env.JWT_SECRET)
-        const user = userCollection.findOne({ _id: new ObjectId(jwt_payload?._id) })
-        req.user = user
-        next()
-    }
+    const feedbackCollection = client.db("e_repair-shop").collection('feedbacks')
 
     try {
 
@@ -56,36 +62,31 @@ async function run() {
             res.send(user)
         })
         app.post("/signup", async (req, res) => {
-            const reqBody = req.body
-            const { username, email, password } = reqBody
-            const existingUser = userCollection.findOne({ email: email })
-            if (existingUser) {
-                res.send({ message: "user already exists!!" })
-            }
-            const hashedPassword = await bcrypt.hash(password, 7)
-            const user = {
-                username,
-                email,
-                hashedPassword
-            }
-            const result = await userCollection.insertOne(user)
-
-            res.send({ message: "User created succesfully" })
-        })
-        app.post("/login", async (req, res) => {
-            const loginInfo = req.body
-            const { email, password } = loginInfo
-            const existingUser = userCollection.findOne({ email: email })
+            const user = req.body
+            const existingUser = await userCollection.findOne({ email: user?.email })
+            const token = genarateJwtToken(user)
             if (!existingUser) {
-                res.send({ message: "User not registered" })
+                const result = await userCollection.insertOne(user)
+                res.send({ token })
+            } else {
+                res.send({ message: "user already exists!" })
+
             }
-            const isPasswordMatch = await bcrypt.compare(password, existingUser?.hashedPassword)
-            if (!isPasswordMatch) {
-                res.send({ message: "Password Incorrect!!" })
-            }
-            const login_token = genarateJwtToken(existingUser)
-            res.send({ message: "Login Succesful" }).cookie("login-token", login_token)
         })
+        // app.post("/login", async (req, res) => {
+        //     const loginInfo = req.body
+        //     const { email, password } = loginInfo
+        //     const existingUser = userCollection.findOne({ email: email })
+        //     if (!existingUser) {
+        //         res.send({ message: "User not registered" })
+        //     }
+        //     const isPasswordMatch = await bcrypt.compare(password, existingUser?.hashedPassword)
+        //     if (!isPasswordMatch) {
+        //         res.send({ message: "Password Incorrect!!" })
+        //     }
+        //     const login_token = genarateJwtToken(existingUser)
+        //     res.send({ message: "Login Succesful" }).cookie("login-token", login_token)
+        // })
         app.patch("/update-username/:id", async (req, res) => {
             const id = req.params.id
             const user = req.body
@@ -101,28 +102,30 @@ async function run() {
 
         // service endpoints
 
-        app.get("/services", async (req, res) => {
+        app.get("/orders", async (req, res) => {
             const query = {}
             const services = await serviceCollection.find(query).toArray()
             res.send(services)
         })
-        app.get("/services/:id", async (req, res) => {
+        app.get("/orders/:id", async (req, res) => {
             const id = req.params.id
             const service = await serviceCollection.findOne({ _id: new ObjectId(id) })
             res.send(service)
         })
-        app.get("/users-services", async (req, res) => {
-            const email = req.query.email
-            const filter = { email: email }
+        app.get("/users-orders", async (req, res) => {
+            const userEmail = req?.query.email
+            const filter = {
+                orderEmail: userEmail
+            }
             const result = await serviceCollection.find(filter).toArray()
             res.send(result)
         })
-        app.post("/add-service", async (req, res) => {
-            const service = req.body
-            const result = await serviceCollection.insertOne(service)
+        app.post("/add-order", verifyJwt, async (req, res) => {
+            const order = req.body
+            const result = await serviceCollection.insertOne(order)
             res.send({ message: "service order placed" })
         })
-        app.delete("/delete-service/:id", async (req, res) => {
+        app.delete("/delete-order/:id", async (req, res) => {
             const id = req.params.id
             const query = {
                 _id: new ObjectId(id)
@@ -131,34 +134,15 @@ async function run() {
             res.send({ message: "Service deleted" })
         })
 
-
-
-
-
-
-        // login user via email and pass
-        // app.post("/login", async (req, res) => {
-        //     const userInfo = user
-        //     const { email, password } = user
-        //     const doesUserExist = userCollection.findOne({ email: email })
-        //     if (!doesUserExist) {
-        //         res.send({ message: "User do not exist" })
-        //     }
-        //     const isPasswordMatch = await bcrypt.compare(password, doesUserExist.hashedPassword)
-        //     if (!isPasswordMatch) {
-        //         res.send({ message: "Password incorrect!!" })
-        //     }
-        //     res.send(doesUserExist)
-        // })
-
-
-
-
-
-
-
-
-
+        app.post("/add-feedback", verifyJwt, async (req, res) => {
+            const feedback = req.body
+            const result = await feedbackCollection.insertOne(feedback)
+            res.send({ message: "Feedback Added" })
+        })
+        app.get("/feedbacks", async (req, res) => {
+            const feedbacks = await feedbackCollection.find({}).toArray()
+            res.send(feedbacks)
+        })
     } catch (error) {
         if (error) {
             console.log(error);
