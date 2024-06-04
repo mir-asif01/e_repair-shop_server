@@ -156,7 +156,7 @@ async function run() {
             res.send(order)
         })
 
-        app.patch("/order/edit/:id", async (req, res) => {
+        app.patch("/order/edit/:id", verifyJwt, async (req, res) => {
             const id = req.params?.id
             const updatedInfo = req.body
             const result = serviceCollection.updateOne(
