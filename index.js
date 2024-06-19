@@ -36,7 +36,7 @@ const verifyJwt = (req, res, next) => {
     const token = req?.headers?.authorization?.split(" ")[1]
     const jwt_payload = jwt.verify(token, process.env.JWT_SECRET)
     if (!jwt_payload?.email) {
-        res.send({ message: "Unautorized User" })
+        res.send({ message: "Unauthorized User" })
     }
     req.user = jwt_payload?.email
     next()
@@ -65,7 +65,12 @@ async function run() {
             const user = await userCollection.findOne({ email: email })
             res.send(user)
         })
-        app.patch("/users/:email", async (req, res) => {
+        app.patch("/users/:email", verifyJwt, async (req, res) => {
+            const payload_email = req?.user
+            if (!payload_email) {
+                res.send({ message: "Unauthorized user..." })
+                return
+            }
             const email = req?.params?.email
             const userInfo = req.body
             const result = await userCollection.updateOne(
@@ -73,7 +78,7 @@ async function run() {
                 { $set: userInfo },
                 { upsert: true }
             )
-            res.send({ message: "Profile Updated" })
+            res.send(result)
         })
         app.post("/signup", async (req, res) => {
             const user = req.body
@@ -83,24 +88,10 @@ async function run() {
                 const result = await userCollection.insertOne(user)
                 res.send({ token })
             } else {
-                res.send({ message: "user already exists!" })
+                res.send({ message: "user already exists!", token })
 
             }
         })
-        // app.post("/login", async (req, res) => {
-        //     const loginInfo = req.body
-        //     const { email, password } = loginInfo
-        //     const existingUser = userCollection.findOne({ email: email })
-        //     if (!existingUser) {
-        //         res.send({ message: "User not registered" })
-        //     }
-        //     const isPasswordMatch = await bcrypt.compare(password, existingUser?.hashedPassword)
-        //     if (!isPasswordMatch) {
-        //         res.send({ message: "Password Incorrect!!" })
-        //     }
-        //     const login_token = genarateJwtToken(existingUser)
-        //     res.send({ message: "Login Succesful" }).cookie("login-token", login_token)
-        // })
         app.patch("/update-username/:id", async (req, res) => {
             const id = req.params.id
             const user = req.body
@@ -111,7 +102,7 @@ async function run() {
             }, {
                 upsert: true
             })
-            res, send({ message: "Username updated successfully" })
+            res.send(result)
         })
 
         // service endpoints
@@ -126,7 +117,12 @@ async function run() {
             const service = await serviceCollection.findOne({ _id: new ObjectId(id) })
             res.send(service)
         })
-        app.get("/users-orders", async (req, res) => {
+        app.get("/users-orders", verifyJwt, async (req, res) => {
+            const email = req?.user
+            if (!email) {
+                res.send({ message: "Unauthorized User.." })
+                return
+            }
             const userEmail = req?.query.email
             const filter = {
                 orderEmail: userEmail
@@ -135,17 +131,27 @@ async function run() {
             res.send(result)
         })
         app.post("/add-order", verifyJwt, async (req, res) => {
+            const email = req?.user
+            if (!email) {
+                res.send({ message: "Unauthorized User.." })
+                return
+            }
             const order = req.body
             const result = await serviceCollection.insertOne(order)
-            res.send({ message: "service order placed" })
+            res.send(result)
         })
         app.delete("/delete-order/:id", verifyJwt, async (req, res) => {
+            const email = req?.user
+            if (!email) {
+                res.send({ message: "Unauthorized User..." })
+                return
+            }
             const id = req.params.id
             const query = {
                 "_id": new ObjectId(id)
             }
             const result = await serviceCollection.deleteOne(query)
-            res.send({ message: "Service deleted" })
+            res.send(result)
         })
 
         app.get("/order/:id", async (req, res) => {
@@ -157,20 +163,32 @@ async function run() {
         })
 
         app.patch("/order/edit/:id", verifyJwt, async (req, res) => {
+            const email = req?.user
+            if (!email) {
+                res.send({ message: "Unauthorized User.." })
+                return
+            }
             const id = req.params?.id
             const updatedInfo = req.body
-            const result = serviceCollection.updateOne(
+            const result = await serviceCollection.updateOne(
                 { "_id": new ObjectId(id) },
                 { $set: updatedInfo },
                 { upsert: true }
             )
-            res.send({ message: "Order info Updated" })
+            res.send(result)
         })
 
+        // feedback endpoints
+
         app.post("/add-feedback", verifyJwt, async (req, res) => {
+            const email = req?.user
+            if (!email) {
+                res.send({ message: "Unauthorized User.." })
+                return
+            }
             const feedback = req.body
             const result = await feedbackCollection.insertOne(feedback)
-            res.send({ message: "Feedback Added" })
+            res.send(result)
         })
         app.get("/feedbacks", async (req, res) => {
             const feedbacks = await feedbackCollection.find({}).toArray()
