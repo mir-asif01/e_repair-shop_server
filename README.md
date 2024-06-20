@@ -1,22 +1,23 @@
-# nodejs-expressjs app
-## clone this repo `git clone https://github.com/mir-asif01/e_repair_shop-client`
-## install dependencies `npm i`
-## run project `npm run dev`
+# Title
+This is the server side code repository of e-repair-shop app.
 
-# api endpoints
-http://localhost/
- - get users
- - post signUp
- - get users/:id
- - get users-info/
- - patch user/:email
- - get order
- - get order/:id
- - patch order/:id
- - post order
- - post feedback
- - get feedbacks
+# Live backend server link
+https://e-repair-shop-server.vercel.app/
 
-## used jwt authentication to secure api endpoints
+# API endpoints
+- /users {GET} fetch all regitered user from database
+- /user/:id {GET} fetch a single user based on unique id
+- /user-info {GET} get user info based on user email
+- /user/:email {PATCH} update user information
+- /signup {POST} create new user in the database this endpoint is called upon succesfull user registration in firebase
+- /update-username/:id {PATCH} update the username of user after email=password registration in firebase
+- /orders {GET} fetch all the orders
+- /orders/:id {GET} fetch single oreder based on unique id
+- /user-order {GET}  fetch all orders added by logged in user
+- /add-order {POST} create a new order
+- /delete-order {DELETE} delete a order
+- /order/edit/:id {PATCH} upadte the order information
+- /add-feedback {POST} creates a new feedback
+- /feedbacks {GET} fecth all feedback previously added
+  
 
-### enjoy deelopment
